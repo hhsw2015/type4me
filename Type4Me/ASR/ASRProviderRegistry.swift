@@ -166,7 +166,11 @@ enum ASRProviderRegistry {
             .aliyun:  ProviderEntry(configType: AliyunASRConfig.self,  createClient: nil),
             .tencent: ProviderEntry(configType: TencentASRConfig.self, createClient: nil),
             .iflytek: ProviderEntry(configType: IflytekASRConfig.self, createClient: nil),
-            .custom:  ProviderEntry(configType: CustomASRConfig.self,  createClient: { CustomASRClient() }, capabilities: .streaming()),
+            // Audio streams live to the gateway (the chunk pipeline sends regardless
+            // of isStreaming), but the gateway only returns a result after endAudio
+            // (八哥 has no interim). Classify as batch so the session waits for the
+            // final transcript instead of fast-exiting when no interim text appears.
+            .custom:  ProviderEntry(configType: CustomASRConfig.self,  createClient: { CustomASRClient() }, capabilities: .batch()),
         ]
         #if HAS_SHERPA_ONNX
         dict[.sherpa] = ProviderEntry(

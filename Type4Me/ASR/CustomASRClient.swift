@@ -127,6 +127,7 @@ actor CustomASRClient: SpeechRecognizer {
             let detail = obj["detail"] as? String ?? ""
             emit(.error(CustomASRError.server(err, detail)))
             emit(.completed)
+            eventContinuation?.finish()   // let the session's event drain return immediately
             return
         }
         if let partial = obj["partial"] as? String {
@@ -141,6 +142,7 @@ actor CustomASRClient: SpeechRecognizer {
                 confirmedSegments: clean.isEmpty ? [] : [clean], partialText: "",
                 authoritativeText: clean, isFinal: true)))
             emit(.completed)
+            eventContinuation?.finish()   // final delivered → end the stream so teardown is instant
         }
     }
 }
