@@ -11,6 +11,7 @@ struct CustomASRConfig: ASRProviderConfig, Sendable {
         CredentialField(key: "secretKey", label: L("Secret Key", "Secret Key"), placeholder: L("可选", "Optional"), isSecure: true, isOptional: true, defaultValue: ""),
         CredentialField(key: "appId", label: L("App ID", "App ID"), placeholder: L("可选", "Optional"), isSecure: false, isOptional: true, defaultValue: ""),
         CredentialField(key: "region", label: L("区域", "Region"), placeholder: L("可选", "Optional"), isSecure: false, isOptional: true, defaultValue: ""),
+        CredentialField(key: "skipAppRefine", label: L("跳过 App 润色（网关已润色）", "Skip app refinement (gateway already refines)"), placeholder: "", isSecure: false, isOptional: true, defaultValue: "true", isToggle: true),
     ]}
 
     let endpointURL: String
@@ -18,6 +19,9 @@ struct CustomASRConfig: ASRProviderConfig, Sendable {
     let secretKey: String?
     let appId: String?
     let region: String?
+    /// When true, the app skips its own LLM post-processing because the gateway
+    /// (typeless2api) already refined the text. Default on. See RecognitionSession.
+    let skipAppRefine: Bool
 
     init?(credentials: [String: String]) {
         guard let url = credentials["endpointURL"], !url.isEmpty else { return nil }
@@ -26,6 +30,7 @@ struct CustomASRConfig: ASRProviderConfig, Sendable {
         self.secretKey = credentials["secretKey"]
         self.appId = credentials["appId"]
         self.region = credentials["region"]
+        self.skipAppRefine = credentials["skipAppRefine"].map { $0 == "true" } ?? true
     }
 
     func toCredentials() -> [String: String] {
@@ -34,6 +39,7 @@ struct CustomASRConfig: ASRProviderConfig, Sendable {
         if let v = secretKey, !v.isEmpty { result["secretKey"] = v }
         if let v = appId, !v.isEmpty { result["appId"] = v }
         if let v = region, !v.isEmpty { result["region"] = v }
+        result["skipAppRefine"] = skipAppRefine ? "true" : "false"
         return result
     }
 

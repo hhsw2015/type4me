@@ -342,6 +342,13 @@ actor RecognitionSession {
     /// stopRecording reads this, not the global setting.
     private var activeProvider: ASRProvider = .volcano
 
+    /// True when the custom gateway provider is active with its "skip app
+    /// refinement" toggle on (default). The gateway already refined the text,
+    /// so the app bypasses its own LLM post-processing and pastes directly.
+    private var skipAppRefinement: Bool {
+        (currentConfig as? CustomASRConfig)?.skipAppRefine ?? false
+    }
+
     // MARK: - UI Callback
 
     /// Called on every ASR event so the UI layer can update.
@@ -803,7 +810,7 @@ actor RecognitionSession {
         }
         state = .finishing
         await finishTextOutput(text, generation: sessionGeneration, stopStartedAt: .now,
-                               needsLLM: Self.shouldRunInputModeLLM(recordingPurpose: recordingPurpose, mode: mode))
+                               needsLLM: Self.shouldRunInputModeLLM(recordingPurpose: recordingPurpose, mode: mode, skipRefine: skipAppRefinement))
     }
 
     func startReviseRecording(_ target: RevisePreparedTarget) async {
@@ -1224,7 +1231,7 @@ actor RecognitionSession {
         DebugFileLogger.log("ASR pipeline live, flushed \(bufferedChunks.count) buffered chunks")
 
         // Pre-warm LLM connection for modes with post-processing
-        if !currentMode.prompt.isEmpty, let runtime = await resolveLLMRuntime() {
+        if !currentMode.prompt.isEmpty, !skipAppRefinement, let runtime = await resolveLLMRuntime() {
             Task { await runtime.client.warmUp(baseURL: runtime.config.baseURL) }
         }
 
@@ -1706,7 +1713,8 @@ actor RecognitionSession {
         cancelSpeculativeLLM()
         var needsLLM = Self.shouldRunInputModeLLM(
             recordingPurpose: recordingPurpose,
-            mode: currentMode
+            mode: currentMode,
+            skipRefine: skipAppRefinement
         )
         if cancellationSkipsLLM {
             needsLLM = false
@@ -2747,7 +2755,7 @@ actor RecognitionSession {
                 cont.resume(returning: transcript.displayText)
             }
             logger.info("Transcript updated: \(transcript.displayText)")
-            if state == .recording && !currentMode.prompt.isEmpty && currentMode.executionKind == .recording {
+            if state == .recording && !currentMode.prompt.isEmpty && !skipAppRefinement && currentMode.executionKind == .recording {
                 scheduleSpeculativeLLM()
             }
 
@@ -3602,9 +3610,14 @@ actor RecognitionSession {
 
     static func shouldRunInputModeLLM(
         recordingPurpose: RecordingPurpose,
-        mode: ProcessingMode
+        mode: ProcessingMode,
+        skipRefine: Bool = false
     ) -> Bool {
         guard case .input = recordingPurpose else { return false }
+        // The custom gateway provider can pre-refine server-side; when its
+        // "skip app refinement" toggle is on we bypass the app's LLM entirely
+        // and paste the gateway text directly (theoretical-max latency).
+        if skipRefine { return false }
         return !mode.prompt.isEmpty && mode.executionKind == .recording
     }
 

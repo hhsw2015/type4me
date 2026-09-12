@@ -92,12 +92,16 @@ struct CredentialField: Sendable, Identifiable {
     /// that reveals a text field for free-form input.
     let allowCustomInput: Bool
 
+    /// When true, the UI renders a Toggle (on/off) instead of a text field.
+    /// Stored value is the string "true"/"false"; defaultValue seeds the state.
+    let isToggle: Bool
+
     /// Sentinel value used in the picker to represent "custom input" mode.
     static let customValue = "_custom"
 
     var id: String { key }
 
-    init(key: String, label: String, placeholder: String, isSecure: Bool, isOptional: Bool, defaultValue: String, options: [FieldOption] = [], allowCustomInput: Bool = false) {
+    init(key: String, label: String, placeholder: String, isSecure: Bool, isOptional: Bool, defaultValue: String, options: [FieldOption] = [], allowCustomInput: Bool = false, isToggle: Bool = false) {
         self.key = key
         self.label = label
         self.placeholder = placeholder
@@ -106,6 +110,7 @@ struct CredentialField: Sendable, Identifiable {
         self.defaultValue = defaultValue
         self.options = options
         self.allowCustomInput = allowCustomInput
+        self.isToggle = isToggle
     }
 }
 
