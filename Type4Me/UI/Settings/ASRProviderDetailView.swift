@@ -424,7 +424,17 @@ struct ASRProviderDetailView: View, SettingsCardHelpers {
 
     @ViewBuilder
     private func credentialFieldRow(_ field: CredentialField) -> some View {
-        if !field.options.isEmpty && field.allowCustomInput {
+        if field.isToggle {
+            let toggleBinding = Binding<Bool>(
+                get: { (asrCredentialValues[field.key] ?? field.defaultValue) == "true" },
+                set: { asrCredentialValues[field.key] = $0 ? "true" : "false" }
+            )
+            settingsOptionRow(field.label, controlWidth: SettingsControlWidth.toggle) {
+                Toggle("", isOn: toggleBinding)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+        } else if !field.options.isEmpty && field.allowCustomInput {
             let allOptions = field.options + [
                 FieldOption(
                     value: CredentialField.customValue,

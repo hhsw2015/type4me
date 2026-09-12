@@ -1,0 +1,46 @@
+name: build-macos
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feat/custom-stream-provider"
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode (need Swift 6.2 for swift-tools 6.2)
+        run: |
+          latest="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+          xcode-select -p
+          swift --version
+
+      - name: Build cloud DMG (unsigned, ad-hoc)
+        env:
+          SKIP_NOTARIZE: "1"
+          VARIANT: cloud
+          ARCH: arm64
+          APP_VERSION: "2.8.0"
+          APP_FLAVOR: public
+        run: bash scripts/build-dmg.sh
+
+      - name: Collect outputs
+        run: |
+          mkdir -p out
+          find dist -name "*.dmg" -exec cp {} out/ \; || true
+          # also zip the .app for direct use
+          app="$(find dist -maxdepth 3 -name 'Type4Me.app' -type d | head -1)"
+          if [ -n "$app" ]; then ditto -c -k --keepParent "$app" "out/Type4Me-cloud-arm64.app.zip"; fi
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Type4Me-cloud-arm64
+          path: out/*
+          if-no-files-found: error
+          retention-days: 14
